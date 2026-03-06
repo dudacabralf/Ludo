@@ -61,8 +61,14 @@ proxies = []
 def create_board():
     svg = document.getElementById("board-svg")
     if not svg: return
-    svg.innerHTML = ""
     
+    # Preservar o defs removendo apenas outros elementos
+    nodes = list(svg.childNodes)
+    for node in nodes:
+        if node.nodeName.lower() != "defs":
+            svg.removeChild(node)
+    
+    # Gerar Células do Tabuleiro
     for y in range(BOARD_SIZE):
         for x in range(BOARD_SIZE):
             rect = document.createElementNS("http://www.w3.org/2000/svg", "rect")
@@ -100,18 +106,26 @@ def create_board():
                 rect.setAttribute("opacity", "0.2")
                 svg.appendChild(rect)
 
+    # Criar Bonecos (Pieces)
     for color in PLAYER_ORDER:
         for i, p in enumerate(pieces[color]):
             circle = document.createElementNS("http://www.w3.org/2000/svg", "circle")
             circle.setAttribute("id", p['id'])
             circle.setAttribute("r", str(CELL_SIZE * 0.35))
             circle.setAttribute("class", f"piece piece-{color}")
+            # Fallback fill caso o gradiente falhe
+            circle.setAttribute("fill", COLORS[color])
+            # Aplicar gradiente se disponível
             circle.setAttribute("fill", f"url(#grad-{color})")
-            circle.setAttribute("stroke", "rgba(255,255,255,0.8)")
+            circle.setAttribute("stroke", "white")
             circle.setAttribute("stroke-width", "2")
             circle.setAttribute("filter", "url(#shadow)")
             
-            pxy = create_proxy(lambda e, c=color, idx=i: piece_clicked(c, idx))
+            # Usar fechamento para capturar color e i
+            def make_handler(c=color, idx=i):
+                return create_proxy(lambda e: piece_clicked(c, idx))
+            
+            pxy = make_handler()
             proxies.append(pxy)
             circle.addEventListener("click", pxy)
             svg.appendChild(circle)
@@ -199,12 +213,13 @@ def roll_dice(event):
             break
             
     if not possible:
-        document.getElementById("game-msg").innerText += " Sem jogadas..."
+        document.getElementById("game-msg").innerText += " Sem jogadas... Próximo!"
         pxy = create_proxy(next_turn)
         proxies.append(pxy)
-        window.setTimeout(pxy, 1200)
+        window.setTimeout(pxy, 1500)
     else:
         GAME_STATE = "WAITING_PIECE"
+        document.getElementById("game-msg").innerText += " Clique em uma peça para mover!"
         update_pieces_ui()
 
 def next_turn():
@@ -282,11 +297,18 @@ def check_capture(color, path_idx):
 
 # Inicialização
 try:
+    print("Iniciando Tabuleiro...")
     create_board()
+    # Garantir que o turno inicial esteja correto na UI
+    next_turn()
+    # Resetar para o primeiro jogador explicitamente
+    TURN_INDEX = 0
     document.getElementById("loading-screen").style.opacity = "0"
     window.setTimeout(create_proxy(lambda: setattr(document.getElementById("loading-screen").style, "display", "none")), 500)
     print("Antigravity Engine High-Performance Ready.")
 except Exception as e:
-    print(f"Erro Crítico: {e}")
+    import traceback
+    error_details = traceback.format_exc()
+    print(f"Erro Crítico: {e}\n{error_details}")
     if document.getElementById("game-msg"):
         document.getElementById("game-msg").innerText = f"Erro de Motor: {e}"
