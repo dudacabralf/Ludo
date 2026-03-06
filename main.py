@@ -1,9 +1,10 @@
 from pyscript import window, document
 from pyodide.ffi import create_proxy
 import random
-import time
 
-# Constantes do Board
+# ============================================================
+# CONSTANTES
+# ============================================================
 CELL_SIZE = 40
 BOARD_SIZE = 15
 COLORS = {
@@ -12,88 +13,164 @@ COLORS = {
     'yellow': '#f1c40f',
     'blue': '#2c9aff'
 }
+COLOR_NAMES = {
+    'red': 'Vermelho',
+    'blue': 'Azul',
+    'yellow': 'Amarelo',
+    'green': 'Verde'
+}
 
-SAFE_CELLS = [1, 9, 14, 22, 27, 35, 40, 48]
-
-# Jogadores e Turnos
+SAFE_CELLS = [0, 8, 13, 21, 26, 34, 39, 47]
 PLAYER_ORDER = ['red', 'blue', 'yellow', 'green']
+
+# ============================================================
+# ESTADO DO JOGO
+# ============================================================
 TURN_INDEX = 0
 DICE_VALUE = 0
-GAME_STATE = "WAITING_DICE"
+GAME_STATE = "WAITING_DICE"  # WAITING_DICE, WAITING_PIECE, ANIMATING, GAME_OVER
 
-# Posições das Peças
+# ============================================================
+# POSIÇÕES DAS PEÇAS
+# ============================================================
 pieces = {
-    'red': [{'id': 'r1', 'pos': 0, 'status': 'base', 'dist': 0}, {'id': 'r2', 'pos': 1, 'status': 'base', 'dist': 0}, {'id': 'r3', 'pos': 2, 'status': 'base', 'dist': 0}, {'id': 'r4', 'pos': 3, 'status': 'base', 'dist': 0}],
-    'blue': [{'id': 'b1', 'pos': 0, 'status': 'base', 'dist': 0}, {'id': 'b2', 'pos': 1, 'status': 'base', 'dist': 0}, {'id': 'b3', 'pos': 2, 'status': 'base', 'dist': 0}, {'id': 'b4', 'pos': 3, 'status': 'base', 'dist': 0}],
-    'yellow': [{'id': 'y1', 'pos': 0, 'status': 'base', 'dist': 0}, {'id': 'y2', 'pos': 1, 'status': 'base', 'dist': 0}, {'id': 'y3', 'pos': 2, 'status': 'base', 'dist': 0}, {'id': 'y4', 'pos': 3, 'status': 'base', 'dist': 0}],
-    'green': [{'id': 'g1', 'pos': 0, 'status': 'base', 'dist': 0}, {'id': 'g2', 'pos': 1, 'status': 'base', 'dist': 0}, {'id': 'g3', 'pos': 2, 'status': 'base', 'dist': 0}, {'id': 'g4', 'pos': 3, 'status': 'base', 'dist': 0}],
+    'red':    [{'id': 'r1', 'pos': -1, 'status': 'base'},
+               {'id': 'r2', 'pos': -1, 'status': 'base'},
+               {'id': 'r3', 'pos': -1, 'status': 'base'},
+               {'id': 'r4', 'pos': -1, 'status': 'base'}],
+    'blue':   [{'id': 'b1', 'pos': -1, 'status': 'base'},
+               {'id': 'b2', 'pos': -1, 'status': 'base'},
+               {'id': 'b3', 'pos': -1, 'status': 'base'},
+               {'id': 'b4', 'pos': -1, 'status': 'base'}],
+    'yellow': [{'id': 'y1', 'pos': -1, 'status': 'base'},
+               {'id': 'y2', 'pos': -1, 'status': 'base'},
+               {'id': 'y3', 'pos': -1, 'status': 'base'},
+               {'id': 'y4', 'pos': -1, 'status': 'base'}],
+    'green':  [{'id': 'g1', 'pos': -1, 'status': 'base'},
+               {'id': 'g2', 'pos': -1, 'status': 'base'},
+               {'id': 'g3', 'pos': -1, 'status': 'base'},
+               {'id': 'g4', 'pos': -1, 'status': 'base'}],
 }
 
-BASE_POS = {
-    'red': [(1,1), (1,4), (4,1), (4,4)],
-    'blue': [(1,10), (1,13), (4,10), (4,13)],
-    'yellow': [(10,10), (10,13), (13,10), (13,13)],
-    'green': [(10,1), (10,4), (13,1), (13,4)],
+# Posições (col, row) das 4 peças na base de cada cor
+BASE_POSITIONS = {
+    'red':    [(2, 2), (4, 2), (2, 4), (4, 4)],
+    'blue':   [(10, 2), (12, 2), (10, 4), (12, 4)],
+    'yellow': [(10, 10), (12, 10), (10, 12), (12, 12)],
+    'green':  [(2, 10), (4, 10), (2, 12), (4, 12)],
 }
 
+# Caminho global: 52 casas (col, row)
 GLOBAL_PATH = [
-    (6,0), (6,1), (6,2), (6,3), (6,4), (6,5),
+    (6,1), (6,2), (6,3), (6,4), (6,5),
     (5,6), (4,6), (3,6), (2,6), (1,6), (0,6),
-    (0,7), (0,8), (1,8), (2,8), (3,8), (4,8), (5,8),
+    (0,7),
+    (0,8), (1,8), (2,8), (3,8), (4,8), (5,8),
     (6,9), (6,10), (6,11), (6,12), (6,13), (6,14),
-    (7,14), (8,14), (8,13), (8,12), (8,11), (8,10), (8,9),
+    (7,14),
+    (8,14), (8,13), (8,12), (8,11), (8,10), (8,9),
     (9,8), (10,8), (11,8), (12,8), (13,8), (14,8),
-    (14,7), (14,6), (13,6), (12,6), (11,6), (10,6), (9,6),
-    (8,5), (8,4), (8,3), (8,2), (8,1), (8,0), (7,0)
+    (14,7),
+    (14,6), (13,6), (12,6), (11,6), (10,6), (9,6),
+    (8,5), (8,4), (8,3), (8,2), (8,1), (8,0),
+    (7,0),
 ]
 
-START_IDX = {'red': 1, 'blue': 14, 'yellow': 27, 'green': 40}
+# Índice de partida de cada cor no GLOBAL_PATH
+START_IDX = {'red': 0, 'blue': 13, 'yellow': 26, 'green': 39}
 
+# Caminhos finais (col, row) — 6 casas cada (índice 0..5, sendo 5 = centro/vitória)
 HOME_PATHS = {
-    'red': [(7,1), (7,2), (7,3), (7,4), (7,5), (7,6)],
-    'blue': [(1,7), (2,7), (3,7), (4,7), (5,7), (6,7)],
+    'red':    [(7,1), (7,2), (7,3), (7,4), (7,5), (7,6)],
+    'blue':   [(1,7), (2,7), (3,7), (4,7), (5,7), (6,7)],
     'yellow': [(7,13), (7,12), (7,11), (7,10), (7,9), (7,8)],
-    'green': [(13,7), (12,7), (11,7), (10,7), (9,7), (8,7)]
+    'green':  [(13,7), (12,7), (11,7), (10,7), (9,7), (8,7)],
 }
 
+# Guarda referências de proxies para não serem coletadas pelo GC
 proxies = []
 
+# ============================================================
+# FUNÇÕES DE COORDENADAS
+# ============================================================
+def get_pixel_coords(color, piece_index):
+    """Retorna (px_x, px_y) do centro de uma peça para renderização."""
+    p = pieces[color][piece_index]
+    status = p['status']
+
+    if status == 'base':
+        col, row = BASE_POSITIONS[color][piece_index]
+    elif status == 'path':
+        path_pos = int(p['pos'])
+        col, row = GLOBAL_PATH[path_pos % 52]
+    elif status == 'home':
+        home_pos = int(p['pos'])
+        col, row = HOME_PATHS[color][home_pos]
+    elif status == 'win':
+        col, row = (7, 7)
+    else:
+        col, row = (0, 0)
+
+    px_x = col * CELL_SIZE + CELL_SIZE / 2
+    px_y = row * CELL_SIZE + CELL_SIZE / 2
+    return (px_x, px_y)
+
+
+# ============================================================
+# CRIAR TABULEIRO
+# ============================================================
 def create_board():
     svg = document.getElementById("board-svg")
-    if not svg: return
-    
-    # Preservar o defs removendo apenas outros elementos
-    nodes = list(svg.childNodes)
-    for node in nodes:
-        if node.nodeName.lower() != "defs":
-            svg.removeChild(node)
-    
-    # Gerar Células do Tabuleiro
-    for y in range(BOARD_SIZE):
-        for x in range(BOARD_SIZE):
+    if not svg:
+        print("ERRO: SVG não encontrado!")
+        return
+
+    # Preservar <defs> e limpar o resto
+    to_remove = []
+    for i in range(svg.childNodes.length):
+        node = svg.childNodes.item(i)
+        if node and node.nodeName and node.nodeName.lower() != "defs":
+            to_remove.append(node)
+    for node in to_remove:
+        svg.removeChild(node)
+
+    # Desenhar células do tabuleiro
+    for row in range(BOARD_SIZE):
+        for col in range(BOARD_SIZE):
             rect = document.createElementNS("http://www.w3.org/2000/svg", "rect")
-            rect.setAttribute("x", str(x * CELL_SIZE))
-            rect.setAttribute("y", str(y * CELL_SIZE))
+            rect.setAttribute("x", str(col * CELL_SIZE))
+            rect.setAttribute("y", str(row * CELL_SIZE))
             rect.setAttribute("width", str(CELL_SIZE))
             rect.setAttribute("height", str(CELL_SIZE))
             rect.setAttribute("class", "cell")
-            if x < 6 and y < 6: rect.setAttribute("class", "cell base-red")
-            elif x > 8 and y < 6: rect.setAttribute("class", "cell base-green")
-            elif x > 8 and y > 8: rect.setAttribute("class", "cell base-yellow")
-            elif x < 6 and y > 8: rect.setAttribute("class", "cell base-blue")
-            elif 6 <= x <= 8 and 6 <= y <= 8: rect.setAttribute("fill", "#111")
+
+            # Bases coloridas
+            if col < 6 and row < 6:
+                rect.setAttribute("class", "cell base-red")
+            elif col > 8 and row < 6:
+                rect.setAttribute("class", "cell base-blue")
+            elif col > 8 and row > 8:
+                rect.setAttribute("class", "cell base-yellow")
+            elif col < 6 and row > 8:
+                rect.setAttribute("class", "cell base-green")
+            elif 6 <= col <= 8 and 6 <= row <= 8:
+                rect.setAttribute("fill", "#1a1a2e")
+
             svg.appendChild(rect)
 
-    # Marcadores de casas seguras
+    # Casas seguras
     for idx in SAFE_CELLS:
-        pos = GLOBAL_PATH[idx]
-        star = document.createElementNS("http://www.w3.org/2000/svg", "circle")
-        star.setAttribute("cx", str(pos[0] * CELL_SIZE + CELL_SIZE/2))
-        star.setAttribute("cy", str(pos[1] * CELL_SIZE + CELL_SIZE/2))
-        star.setAttribute("r", str(CELL_SIZE/4))
-        star.setAttribute("class", "safe-cell-mark")
+        col, row = GLOBAL_PATH[idx]
+        star = document.createElementNS("http://www.w3.org/2000/svg", "text")
+        star.setAttribute("x", str(col * CELL_SIZE + CELL_SIZE / 2))
+        star.setAttribute("y", str(row * CELL_SIZE + CELL_SIZE / 2 + 5))
+        star.setAttribute("text-anchor", "middle")
+        star.setAttribute("font-size", "16")
+        star.setAttribute("fill", "rgba(255,255,255,0.15)")
+        star.textContent = "★"
         svg.appendChild(star)
 
+    # Caminhos de casa (home paths coloridos)
     for color, path in HOME_PATHS.items():
         for i, pos in enumerate(path):
             if i < 5:
@@ -103,212 +180,373 @@ def create_board():
                 rect.setAttribute("width", str(CELL_SIZE))
                 rect.setAttribute("height", str(CELL_SIZE))
                 rect.setAttribute("fill", COLORS[color])
-                rect.setAttribute("opacity", "0.2")
+                rect.setAttribute("opacity", "0.15")
                 svg.appendChild(rect)
 
-    # Criar Bonecos (Pieces)
+    # Centro do tabuleiro
+    center = document.createElementNS("http://www.w3.org/2000/svg", "rect")
+    center.setAttribute("x", str(6 * CELL_SIZE))
+    center.setAttribute("y", str(6 * CELL_SIZE))
+    center.setAttribute("width", str(3 * CELL_SIZE))
+    center.setAttribute("height", str(3 * CELL_SIZE))
+    center.setAttribute("fill", "#1a1a2e")
+    center.setAttribute("stroke", "rgba(255,255,255,0.1)")
+    center.setAttribute("stroke-width", "1")
+    svg.appendChild(center)
+
+    # Criar os 16 bonecos
     for color in PLAYER_ORDER:
-        for i, p in enumerate(pieces[color]):
+        for i in range(4):
+            p = pieces[color][i]
             circle = document.createElementNS("http://www.w3.org/2000/svg", "circle")
             circle.setAttribute("id", p['id'])
             circle.setAttribute("r", str(CELL_SIZE * 0.35))
             circle.setAttribute("class", f"piece piece-{color}")
-            # Fallback fill caso o gradiente falhe
             circle.setAttribute("fill", COLORS[color])
-            # Aplicar gradiente se disponível
-            circle.setAttribute("fill", f"url(#grad-{color})")
             circle.setAttribute("stroke", "white")
-            circle.setAttribute("stroke-width", "2")
-            circle.setAttribute("filter", "url(#shadow)")
-            
-            # Usar fechamento para capturar color e i
-            def make_handler(c=color, idx=i):
-                return create_proxy(lambda e: piece_clicked(c, idx))
-            
-            pxy = make_handler()
+            circle.setAttribute("stroke-width", "2.5")
+            circle.setAttribute("style", "cursor: pointer; pointer-events: all;")
+
+            # Criar handler com closure correta
+            def make_click_handler(c, idx):
+                def handler(event):
+                    on_piece_click(c, idx)
+                return handler
+
+            handler_fn = make_click_handler(color, i)
+            pxy = create_proxy(handler_fn)
             proxies.append(pxy)
             circle.addEventListener("click", pxy)
             svg.appendChild(circle)
 
-    update_pieces_ui()
+    # Posicionar peças
+    refresh_all_pieces()
+    print("Tabuleiro criado com sucesso!")
 
-def get_pos_coords(color: str, piece_idx: int):
-    p = pieces[color][piece_idx]
-    st = p['status']
-    idx = int(p['pos'])
-    if st == 'base': return BASE_POS[color][idx]
-    elif st == 'path': return GLOBAL_PATH[idx]
-    elif st == 'home': return HOME_PATHS[color][idx]
-    elif st == 'win': return (7, 7)
-    return (0, 0)
 
-def update_pieces_ui():
-    # Cache positions to handle overlaps
-    occupied = {}
-    
-    for color in PLAYER_ORDER:
-        for i, p in enumerate(pieces[color]):
-            coords = get_pos_coords(color, i)
-            key = f"{coords[0]},{coords[1]}"
-            if key not in occupied: occupied[key] = []
-            occupied[key].append(p['id'])
+# ============================================================
+# ATUALIZAR POSIÇÕES VISUAIS
+# ============================================================
+def refresh_all_pieces():
+    """Atualiza a posição visual de todas as 16 peças."""
+    # Calcular posições e lidar com sobreposição
+    position_groups = {}
 
     for color in PLAYER_ORDER:
-        for i, p in enumerate(pieces[color]):
-            coords = get_pos_coords(color, i)
+        for i in range(4):
+            px_x, px_y = get_pixel_coords(color, i)
+            key = f"{int(px_x)},{int(px_y)}"
+            if key not in position_groups:
+                position_groups[key] = []
+            position_groups[key].append((color, i, px_x, px_y))
+
+    for key, group in position_groups.items():
+        for gi, (color, i, px_x, px_y) in enumerate(group):
+            p = pieces[color][i]
             elem = document.getElementById(p['id'])
-            if not elem: continue
-            
-            key = f"{coords[0]},{coords[1]}"
-            group = occupied[key]
-            offset_x = 0
-            offset_y = 0
-            
-            if len(group) > 1:
-                idx_in_group = group.index(p['id'])
-                # Small spiral offset for multiple pieces
-                angle = idx_in_group * (2 * 3.14159 / len(group))
-                dist = 8
-                offset_x = dist * 0.5 if idx_in_group % 2 == 0 else -dist * 0.5
-                offset_y = dist * 0.5 if (idx_in_group // 2) % 2 == 0 else -dist * 0.5
+            if not elem:
+                continue
 
-            cx = coords[0] * CELL_SIZE + CELL_SIZE / 2 + offset_x
-            cy = coords[1] * CELL_SIZE + CELL_SIZE / 2 + offset_y
-            
-            elem.setAttribute("cx", str(cx))
-            elem.setAttribute("cy", str(cy))
-            
-            if GAME_STATE == "WAITING_PIECE" and color == PLAYER_ORDER[TURN_INDEX]:
-                if can_move(p, DICE_VALUE): elem.classList.add("active")
-                else: elem.classList.remove("active")
+            # Offset para peças sobrepostas
+            ox, oy = 0, 0
+            if len(group) > 1:
+                offsets = [(-6, -6), (6, -6), (-6, 6), (6, 6)]
+                ox, oy = offsets[gi % 4]
+
+            elem.setAttribute("cx", str(px_x + ox))
+            elem.setAttribute("cy", str(px_y + oy))
+
+    # Destacar peças que podem ser movidas
+    current_color = PLAYER_ORDER[TURN_INDEX]
+    for color in PLAYER_ORDER:
+        for i in range(4):
+            p = pieces[color][i]
+            elem = document.getElementById(p['id'])
+            if not elem:
+                continue
+
+            if GAME_STATE == "WAITING_PIECE" and color == current_color:
+                if can_move_piece(p, DICE_VALUE):
+                    elem.classList.add("active")
+                    elem.setAttribute("style", "cursor: pointer; pointer-events: all;")
+                else:
+                    elem.classList.remove("active")
             else:
                 elem.classList.remove("active")
 
-def can_move(piece, die):
-    if piece['status'] == 'base': return die == 6
-    if piece['status'] == 'win': return False
-    if piece['status'] == 'home': return int(piece['pos']) + die <= 5
-    return True
 
-def roll_dice(event):
-    global DICE_VALUE, GAME_STATE
-    if GAME_STATE != "WAITING_DICE": return
-    btn = document.getElementById("roll-btn")
-    btn.disabled = True
-    die_face = document.getElementById("die-face")
-    DICE_VALUE = random.randint(1, 6)
-    die_face.innerText = str(DICE_VALUE)
-    
-    # Anim effect
-    die_face.style.transform = "rotate(720deg) scale(1.2)"
-    window.setTimeout(create_proxy(lambda: setattr(die_face.style, "transform", "rotate(720deg) scale(1)")), 500)
-    
-    document.getElementById("game-msg").innerText = f"Você tirou {DICE_VALUE}!"
-    
-    possible = False
-    current_color = PLAYER_ORDER[TURN_INDEX]
-    for i, p in enumerate(pieces[current_color]):
-        if can_move(p, DICE_VALUE):
-            possible = True
-            break
-            
-    if not possible:
-        document.getElementById("game-msg").innerText += " Sem jogadas... Próximo!"
-        pxy = create_proxy(next_turn)
-        proxies.append(pxy)
-        window.setTimeout(pxy, 1500)
+# ============================================================
+# LÓGICA DE MOVIMENTO
+# ============================================================
+def can_move_piece(piece, dice):
+    """Verifica se uma peça pode se mover com o valor do dado."""
+    status = piece['status']
+    if status == 'win':
+        return False
+    if status == 'base':
+        return dice == 6
+    if status == 'home':
+        new_pos = int(piece['pos']) + dice
+        return new_pos <= 5
+    if status == 'path':
+        # Calcular distância percorrida
+        return True
+    return False
+
+
+def get_distance_traveled(color, piece):
+    """Calcula quantas casas a peça percorreu no caminho global."""
+    if piece['status'] != 'path':
+        return 0
+    start = START_IDX[color]
+    current = int(piece['pos'])
+    if current >= start:
+        return current - start
     else:
-        GAME_STATE = "WAITING_PIECE"
-        document.getElementById("game-msg").innerText += " Clique em uma peça para mover!"
-        update_pieces_ui()
+        return (52 - start) + current
 
-def next_turn():
-    global TURN_INDEX, GAME_STATE
-    if DICE_VALUE != 6:
-        TURN_INDEX = (TURN_INDEX + 1) % 4
-    GAME_STATE = "WAITING_DICE"
-    current_color = PLAYER_ORDER[TURN_INDEX]
-    title = document.getElementById("turn-title")
-    title.innerText = f"Turno do {current_color.capitalize()}"
-    document.getElementById("status-display").style.borderLeftColor = COLORS[current_color]
-    document.getElementById("game-msg").innerText = "Sua vez!"
-    document.getElementById("die-face").innerText = "?"
-    document.getElementById("die-face").style.transform = "rotate(0deg)"
-    document.getElementById("roll-btn").disabled = False
-    update_pieces_ui()
 
-def piece_clicked(color, idx):
+def on_piece_click(color, idx):
+    """Handler de clique em uma peça."""
     global GAME_STATE
-    if GAME_STATE != "WAITING_PIECE": return
-    if color != PLAYER_ORDER[TURN_INDEX]: return
-    piece = pieces[color][idx]
-    if not can_move(piece, DICE_VALUE): return
-    move_piece(color, idx, DICE_VALUE)
+    if GAME_STATE != "WAITING_PIECE":
+        return
+    if color != PLAYER_ORDER[TURN_INDEX]:
+        return
 
-def move_piece(color, idx, steps):
+    p = pieces[color][idx]
+    if not can_move_piece(p, DICE_VALUE):
+        return
+
+    do_move(color, idx, DICE_VALUE)
+
+
+def do_move(color, idx, steps):
+    """Executa o movimento de uma peça."""
     global GAME_STATE
     p = pieces[color][idx]
+
     if p['status'] == 'base':
+        # Sair da base — colocar na casa de partida
         p['status'] = 'path'
         p['pos'] = START_IDX[color]
-        p['dist'] = 0
+        set_msg(f"🚀 {COLOR_NAMES[color]} saiu da base!")
+
     elif p['status'] == 'path':
-        dist = int(p['dist']) + steps
-        if dist > 50:
-            overflow = dist - 51
-            if overflow <= 5:
+        start = START_IDX[color]
+        current_pos = int(p['pos'])
+        traveled = get_distance_traveled(color, p)
+        new_traveled = traveled + steps
+
+        if new_traveled >= 51:
+            # Entrar no caminho final (home)
+            home_pos = new_traveled - 51
+            if home_pos <= 5:
                 p['status'] = 'home'
-                p['pos'] = overflow
-                p['dist'] = dist
+                p['pos'] = home_pos
+                if home_pos == 5:
+                    p['status'] = 'win'
+                    set_msg(f"🎉 Peça do {COLOR_NAMES[color]} chegou em casa!")
+                else:
+                    set_msg(f"➡️ {COLOR_NAMES[color]} entrou na reta final!")
+            else:
+                set_msg(f"❌ Não pode mover — passaria da casa!")
+                return
         else:
-            p['pos'] = (int(p['pos']) + steps) % 52
-            p['dist'] = dist
-            # Only capture if NOT a safe cell
-            if int(p['pos']) not in SAFE_CELLS:
-                check_capture(color, int(p['pos']))
+            # Mover no caminho global
+            new_pos = (current_pos + steps) % 52
+            p['pos'] = new_pos
+
+            # Verificar captura
+            if new_pos not in SAFE_CELLS:
+                check_capture(color, new_pos)
+
+            set_msg(f"🎲 {COLOR_NAMES[color]} moveu {steps} casas!")
+
     elif p['status'] == 'home':
-        p['pos'] = int(p['pos']) + steps
-        if p['pos'] == 5:
+        new_pos = int(p['pos']) + steps
+        if new_pos == 5:
             p['status'] = 'win'
-            document.getElementById("game-msg").innerText = "Peça em casa! 🎉"
-    
+            p['pos'] = 5
+            set_msg(f"🎉 Peça do {COLOR_NAMES[color]} chegou em casa!")
+        elif new_pos < 5:
+            p['pos'] = new_pos
+            set_msg(f"➡️ {COLOR_NAMES[color]} avançou na reta final!")
+        else:
+            return
+
+    # Atualizar visual
     GAME_STATE = "ANIMATING"
-    update_pieces_ui()
-    
-    wins = sum(1 for pi in pieces[color] if pi['status'] == 'win')
+    refresh_all_pieces()
+
+    # Verificar vitória
+    wins = 0
+    for pi in pieces[color]:
+        if pi['status'] == 'win':
+            wins += 1
     if wins == 4:
-        document.getElementById("game-msg").innerText = f"🏆 {color.upper()} VENCEU O JOGO!"
-        window.confetti() # Assuming global confetti if available, else just text
+        GAME_STATE = "GAME_OVER"
+        set_msg(f"🏆 {COLOR_NAMES[color].upper()} VENCEU O JOGO! 🏆")
+        try:
+            window.confetti()
+        except:
+            pass
         return
-        
-    pxy = create_proxy(next_turn)
+
+    # Próximo turno (com delay)
+    pxy = create_proxy(lambda: next_turn())
     proxies.append(pxy)
-    window.setTimeout(pxy, 600)
+    window.setTimeout(pxy, 800)
 
-def check_capture(color, path_idx):
+
+def check_capture(color, path_pos):
+    """Verifica se capturou alguma peça adversária."""
     for other_color in PLAYER_ORDER:
-        if other_color == color: continue
+        if other_color == color:
+            continue
         for i, p in enumerate(pieces[other_color]):
-            if p['status'] == 'path' and int(p['pos']) == path_idx:
+            if p['status'] == 'path' and int(p['pos']) == path_pos:
                 p['status'] = 'base'
-                p['pos'] = i
-                p['dist'] = 0
-                document.getElementById("game-msg").innerText = f"💥 {color.upper()} capturou {other_color}!"
+                p['pos'] = -1
+                set_msg(f"💥 {COLOR_NAMES[color]} capturou peça do {COLOR_NAMES[other_color]}!")
 
-# Inicialização
+
+# ============================================================
+# CONTROLE DE TURNO
+# ============================================================
+def roll_dice(event=None):
+    """Lançar o dado."""
+    global DICE_VALUE, GAME_STATE
+
+    if GAME_STATE != "WAITING_DICE":
+        return
+
+    btn = document.getElementById("roll-btn")
+    if btn:
+        btn.disabled = True
+
+    DICE_VALUE = random.randint(1, 6)
+
+    die_face = document.getElementById("die-face")
+    if die_face:
+        die_face.textContent = str(DICE_VALUE)
+        die_face.style.transform = "scale(1.3)"
+        def reset_scale():
+            die_face.style.transform = "scale(1)"
+        pxy = create_proxy(reset_scale)
+        proxies.append(pxy)
+        window.setTimeout(pxy, 300)
+
+    current_color = PLAYER_ORDER[TURN_INDEX]
+    set_msg(f"🎲 {COLOR_NAMES[current_color]} tirou {DICE_VALUE}!")
+
+    # Verificar se há jogadas possíveis
+    movable = []
+    for i, p in enumerate(pieces[current_color]):
+        if can_move_piece(p, DICE_VALUE):
+            movable.append(i)
+
+    if len(movable) == 0:
+        set_msg(f"🎲 Tirou {DICE_VALUE} — sem jogadas! Passando...")
+        pxy = create_proxy(lambda: next_turn())
+        proxies.append(pxy)
+        window.setTimeout(pxy, 1500)
+    elif len(movable) == 1:
+        # Auto-mover se só há uma opção
+        GAME_STATE = "WAITING_PIECE"
+        refresh_all_pieces()
+        def auto_move():
+            do_move(current_color, movable[0], DICE_VALUE)
+        pxy = create_proxy(auto_move)
+        proxies.append(pxy)
+        window.setTimeout(pxy, 500)
+    else:
+        GAME_STATE = "WAITING_PIECE"
+        set_msg(f"🎲 Tirou {DICE_VALUE}! Clique na peça que quer mover!")
+        refresh_all_pieces()
+
+
+def next_turn():
+    """Passar para o próximo turno."""
+    global TURN_INDEX, GAME_STATE
+
+    if GAME_STATE == "GAME_OVER":
+        return
+
+    # Se tirou 6, joga de novo
+    if DICE_VALUE == 6:
+        GAME_STATE = "WAITING_DICE"
+        set_msg(f"🎯 Tirou 6! {COLOR_NAMES[PLAYER_ORDER[TURN_INDEX]]} joga de novo!")
+    else:
+        TURN_INDEX = (TURN_INDEX + 1) % 4
+        GAME_STATE = "WAITING_DICE"
+
+    current_color = PLAYER_ORDER[TURN_INDEX]
+
+    title = document.getElementById("turn-title")
+    if title:
+        title.textContent = f"Turno do {COLOR_NAMES[current_color]}"
+
+    status = document.getElementById("status-display")
+    if status:
+        status.style.borderLeftColor = COLORS[current_color]
+
+    die_face = document.getElementById("die-face")
+    if die_face:
+        die_face.textContent = "?"
+        die_face.style.transform = "rotate(0deg)"
+
+    btn = document.getElementById("roll-btn")
+    if btn:
+        btn.disabled = False
+
+    refresh_all_pieces()
+
+
+# ============================================================
+# UTILIDADES
+# ============================================================
+def set_msg(text):
+    """Atualiza mensagem do jogo."""
+    elem = document.getElementById("game-msg")
+    if elem:
+        elem.textContent = text
+
+
+# ============================================================
+# INICIALIZAÇÃO
+# ============================================================
 try:
-    print("Iniciando Tabuleiro...")
+    print("Iniciando Ludo Antigravity...")
     create_board()
-    # Garantir que o turno inicial esteja correto na UI
-    next_turn()
-    # Resetar para o primeiro jogador explicitamente
+
+    # Estado inicial
     TURN_INDEX = 0
-    document.getElementById("loading-screen").style.opacity = "0"
-    window.setTimeout(create_proxy(lambda: setattr(document.getElementById("loading-screen").style, "display", "none")), 500)
-    print("Antigravity Engine High-Performance Ready.")
+    GAME_STATE = "WAITING_DICE"
+
+    title = document.getElementById("turn-title")
+    if title:
+        title.textContent = f"Turno do {COLOR_NAMES['red']}"
+    set_msg("Lance o dado para começar! 🎲")
+
+    btn = document.getElementById("roll-btn")
+    if btn:
+        btn.disabled = False
+
+    # Esconder loading
+    loading = document.getElementById("loading-screen")
+    if loading:
+        loading.style.opacity = "0"
+        def hide_loading():
+            loading.style.display = "none"
+        pxy = create_proxy(hide_loading)
+        proxies.append(pxy)
+        window.setTimeout(pxy, 500)
+
+    print("Ludo Antigravity pronto!")
+
 except Exception as e:
     import traceback
-    error_details = traceback.format_exc()
-    print(f"Erro Crítico: {e}\n{error_details}")
-    if document.getElementById("game-msg"):
-        document.getElementById("game-msg").innerText = f"Erro de Motor: {e}"
+    traceback.print_exc()
+    print(f"ERRO: {e}")
+    set_msg(f"Erro: {e}")

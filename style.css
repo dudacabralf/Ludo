@@ -158,7 +158,8 @@ button:disabled {
 }
 
 .piece.active {
-    animation: piece-glow 2s infinite alternate;
+    animation: piece-glow 0.8s infinite alternate;
+    cursor: pointer !important;
 }
 
 @keyframes piece-glow {
@@ -178,22 +179,22 @@ button:disabled {
 
 .base-red {
     fill: var(--red);
-    opacity: 0.1;
+    opacity: 0.15;
 }
 
 .base-blue {
     fill: var(--blue);
-    opacity: 0.1;
+    opacity: 0.15;
 }
 
 .base-green {
     fill: var(--green);
-    opacity: 0.1;
+    opacity: 0.15;
 }
 
 .base-yellow {
     fill: var(--yellow);
-    opacity: 0.1;
+    opacity: 0.15;
 }
 
 .safe-cell-mark {
